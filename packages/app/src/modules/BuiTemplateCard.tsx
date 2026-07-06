@@ -165,10 +165,18 @@ export function BuiTemplateCard(props: TemplateCardComponentProps) {
         )}
         <TagGroup>
           {hasExplicitTimeSaved ? (
-            <Tag id="time-saved">
-              <ClockIcon />
-              Est. time saved: {timeSaved}
-            </Tag>
+            <TooltipTrigger delay={300}>
+              <Tag id="time-saved">
+                <ClockIcon />
+                Est. time saved: {timeSaved}
+              </Tag>
+              <Tooltip>
+                <Text variant="body-x-small" color="primary">
+                  This number reflects the typical time to do this work without
+                  the template, as reported by the owner.
+                </Text>
+              </Tooltip>
+            </TooltipTrigger>
           ) : (
             <TooltipTrigger delay={300}>
               <Tag
