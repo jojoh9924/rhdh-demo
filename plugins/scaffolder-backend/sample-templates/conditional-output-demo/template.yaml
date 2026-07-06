@@ -4,8 +4,7 @@ metadata:
   name: conditional-output-demo
   title: Conditional Output Demo
   description: Demonstrates conditional if on output links and text
-  annotations:
-    rhdh.redhat.com/time-saved: '4 hours'
+  annotations: {}
 spec:
   owner: backstage/techdocs-core
   type: service

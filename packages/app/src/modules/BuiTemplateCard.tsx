@@ -14,8 +14,11 @@
  * limitations under the License.
  */
 
-import { useMemo } from 'react';
-import { RELATION_OWNED_BY } from '@backstage/catalog-model';
+import { useCallback, useMemo, useState } from 'react';
+import {
+  ANNOTATION_SOURCE_LOCATION,
+  RELATION_OWNED_BY,
+} from '@backstage/catalog-model';
 import { useAnalytics } from '@backstage/frontend-plugin-api';
 import {
   EntityRefLink,
@@ -31,6 +34,8 @@ import {
   Tag,
   TagGroup,
   Text,
+  Tooltip,
+  TooltipTrigger,
 } from '@backstage/ui';
 import type { TemplateCardComponentProps } from '@backstage/plugin-scaffolder-react/alpha';
 import styles from './BuiTemplateCard.module.css';
@@ -45,6 +50,7 @@ const DEFAULT_TIME_SAVED: Record<string, string> = {
   documentation: '2 hours',
 };
 const FALLBACK_TIME_SAVED = 'unknown';
+const TIME_SAVED_SNIPPET = `rhdh.redhat.com/time-saved: '<duration>'`;
 
 function ClockIcon() {
   return (
@@ -65,6 +71,38 @@ function ClockIcon() {
   );
 }
 
+function TimeSavedTooltipContent() {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    window.navigator.clipboard.writeText(TIME_SAVED_SNIPPET).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }, []);
+
+  return (
+    <div className={styles.tooltipContent}>
+      <Text variant="body-x-small" color="primary">
+        Help users see the value of your template. Add this annotation to your
+        template.yaml:
+      </Text>
+      <div className={styles.tooltipSnippet}>
+        <code className={styles.tooltipCode}>{TIME_SAVED_SNIPPET}</code>
+        <Button
+          size="small"
+          variant="tertiary"
+          onPress={handleCopy}
+          aria-label="Copy annotation to clipboard"
+          className={styles.tooltipCopyButton}
+        >
+          {copied ? '✓' : '⎘'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function BuiTemplateCard(props: TemplateCardComponentProps) {
   const { template, onSelected } = props;
   const analytics = useAnalytics();
@@ -74,10 +112,16 @@ export function BuiTemplateCard(props: TemplateCardComponentProps) {
     metadata: { tags, description, name, title, annotations },
   } = template;
 
+  const hasExplicitTimeSaved = !!annotations?.[TIME_SAVED_ANNOTATION];
   const timeSaved =
     annotations?.[TIME_SAVED_ANNOTATION] ??
     DEFAULT_TIME_SAVED[type] ??
     FALLBACK_TIME_SAVED;
+
+  const sourceLocation =
+    annotations?.[ANNOTATION_SOURCE_LOCATION] ??
+    annotations?.['backstage.io/managed-by-location'] ??
+    undefined;
 
   const visibleTags = useMemo(
     () =>
@@ -120,10 +164,26 @@ export function BuiTemplateCard(props: TemplateCardComponentProps) {
           </Text>
         )}
         <TagGroup>
-          <Tag id="time-saved">
-            <ClockIcon />
-            Est. time saved: {timeSaved}
-          </Tag>
+          {hasExplicitTimeSaved ? (
+            <Tag id="time-saved">
+              <ClockIcon />
+              Est. time saved: {timeSaved}
+            </Tag>
+          ) : (
+            <TooltipTrigger delay={300}>
+              <Tag
+                id="time-saved"
+                href={sourceLocation?.replace(/^(url|file):/, '') ?? '#'}
+                className={styles.addTimeSavedTag}
+              >
+                <ClockIcon />
+                Add est. time saved
+              </Tag>
+              <Tooltip>
+                <TimeSavedTooltipContent />
+              </Tooltip>
+            </TooltipTrigger>
+          )}
           {visibleTags.map(t => (
             <Tag key={t}>{t!}</Tag>
           ))}
