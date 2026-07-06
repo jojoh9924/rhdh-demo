@@ -89,15 +89,15 @@ function TimeSavedTooltipContent() {
       </Text>
       <div className={styles.tooltipSnippet}>
         <code className={styles.tooltipCode}>{TIME_SAVED_SNIPPET}</code>
-        <Button
-          size="small"
-          variant="tertiary"
-          onPress={handleCopy}
-          aria-label="Copy annotation to clipboard"
+        {/* eslint-disable-next-line react/forbid-elements */}
+        <button
+          type="button"
           className={styles.tooltipCopyButton}
+          onClick={handleCopy}
+          aria-label="Copy annotation to clipboard"
         >
           {copied ? '✓' : '⎘'}
-        </Button>
+        </button>
       </div>
     </div>
   );
