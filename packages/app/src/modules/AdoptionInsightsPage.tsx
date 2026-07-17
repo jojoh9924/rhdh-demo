@@ -64,7 +64,11 @@ function computeCompletenessScore(entity: Entity): number {
 
   const annotations = meta.annotations ?? {};
   if (annotations['backstage.io/techdocs-ref']) score += 1;
-  if (annotations['backstage.io/source-location'] || annotations['backstage.io/source-template']) score += 1;
+  if (
+    annotations['backstage.io/source-location'] ||
+    annotations['backstage.io/source-template']
+  )
+    score += 1;
 
   const remaining = Object.keys(annotations).filter(
     k =>
@@ -312,7 +316,9 @@ function CompletenessScoreChart() {
         setComponents(
           response.items.map(entity => ({
             name: entity.metadata.name,
-            owner: ((entity.spec as Record<string, unknown> | undefined)?.owner as string) ?? 'unknown',
+            owner:
+              ((entity.spec as Record<string, unknown> | undefined)
+                ?.owner as string) ?? 'unknown',
             score: computeCompletenessScore(entity),
           })),
         );
@@ -330,9 +336,8 @@ function CompletenessScoreChart() {
 
   const tierCounts = COMPLETENESS_TIERS.map(tier => ({
     ...tier,
-    count: components.filter(
-      c => c.score >= tier.min && c.score < tier.max,
-    ).length,
+    count: components.filter(c => c.score >= tier.min && c.score < tier.max)
+      .length,
   }));
 
   const total = components.length;
@@ -375,7 +380,9 @@ function CompletenessScoreChart() {
             strokeDashoffset={seg.offset}
             transform={`rotate(-90 ${cx} ${cy})`}
             style={{ cursor: 'pointer' }}
-            onClick={() => setSelectedTier(prev => prev === seg.label ? null : seg.label)}
+            onClick={() =>
+              setSelectedTier(prev => (prev === seg.label ? null : seg.label))
+            }
           />
         ))}
         <circle cx={cx} cy={cy} r={55} fill="white" />
@@ -398,7 +405,9 @@ function CompletenessScoreChart() {
               fontWeight={700}
               fill="#fff"
               style={{ cursor: 'pointer' }}
-              onClick={() => setSelectedTier(prev => prev === seg.label ? null : seg.label)}
+              onClick={() =>
+                setSelectedTier(prev => (prev === seg.label ? null : seg.label))
+              }
             >
               {pct}%
             </text>
@@ -418,55 +427,57 @@ function CompletenessScoreChart() {
           components
         </text>
       </svg>
-      {selectedTier && (() => {
-        const tier = COMPLETENESS_TIERS.find(t => t.label === selectedTier);
-        if (!tier) return null;
-        const filtered = components.filter(
-          c => c.score >= tier.min && c.score < tier.max,
-        );
-        return (
-          <>
-            <div className={classes.previewHeader}>
-              <Typography className={classes.previewTierLabel}>
-                <span
-                  className={classes.completenessLegendDot}
-                  style={{ background: tier.color }}
-                />
-                {tier.label} &mdash; {filtered.length} component{filtered.length !== 1 ? 's' : ''}
-              </Typography>
-              <IconButton size="small" onClick={() => setSelectedTier(null)}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </div>
-            <div className={classes.previewPanel}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Component</TableCell>
-                    <TableCell>Owner</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filtered.map(c => (
-                    <TableRow key={c.name}>
-                      <TableCell>
-                        <Link to={`/catalog/default/component/${c.name}`}>
-                          {c.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        <Link to={`/catalog/default/group/${c.owner}`}>
-                          {c.owner}
-                        </Link>
-                      </TableCell>
+      {selectedTier &&
+        (() => {
+          const tier = COMPLETENESS_TIERS.find(t => t.label === selectedTier);
+          if (!tier) return null;
+          const filtered = components.filter(
+            c => c.score >= tier.min && c.score < tier.max,
+          );
+          return (
+            <>
+              <div className={classes.previewHeader}>
+                <Typography className={classes.previewTierLabel}>
+                  <span
+                    className={classes.completenessLegendDot}
+                    style={{ background: tier.color }}
+                  />
+                  {tier.label} &mdash; {filtered.length} component
+                  {filtered.length !== 1 ? 's' : ''}
+                </Typography>
+                <IconButton size="small" onClick={() => setSelectedTier(null)}>
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </div>
+              <div className={classes.previewPanel}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Component</TableCell>
+                      <TableCell>Owner</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          </>
-        );
-      })()}
+                  </TableHead>
+                  <TableBody>
+                    {filtered.map(c => (
+                      <TableRow key={c.name}>
+                        <TableCell>
+                          <Link to={`/catalog/default/component/${c.name}`}>
+                            {c.name}
+                          </Link>
+                        </TableCell>
+                        <TableCell>
+                          <Link to={`/catalog/default/group/${c.owner}`}>
+                            {c.owner}
+                          </Link>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </>
+          );
+        })()}
       <div className={classes.completenessLegend}>
         {tierCounts.map(tier => (
           <span key={tier.label}>
@@ -554,7 +565,7 @@ export function AdoptionInsightsPage() {
                   <TableRow>
                     <TableCell>Name</TableCell>
                     <TableCell align="right">Executions</TableCell>
-                    <TableCell align="right">Est. Time Saved</TableCell>
+                    <TableCell align="right">Total Est. Time Saved</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
