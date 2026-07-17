@@ -84,7 +84,7 @@ function TimeSavedTooltipContent() {
   return (
     <div className={styles.tooltipContent}>
       <Text variant="body-x-small" color="primary">
-        Help users see the value of your template. Add this annotation to your
+        Help others see the value of this template. Add this annotation to its
         template.yaml:
       </Text>
       <div className={styles.tooltipSnippet}>
