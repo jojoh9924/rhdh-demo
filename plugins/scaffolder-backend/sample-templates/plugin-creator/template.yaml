@@ -1,0 +1,104 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: plugin-creator
+  title: Plugin Creator
+  description: Scaffold a new Backstage plugin with a pre-configured Dev Spaces workspace. Creates a GitHub repo and opens it in OpenShift Dev Spaces with all dependencies ready.
+  tags:
+    - plugin
+    - devspaces
+    - recommended
+  annotations:
+    rhdh.redhat.com/time-saved: '6 hours'
+spec:
+  owner: group:default/platform-engineering
+  type: service
+
+  parameters:
+    - title: Plugin Details
+      required:
+        - pluginName
+        - pluginType
+        - owner
+        - repoName
+      properties:
+        pluginName:
+          title: Plugin Name
+          type: string
+          description: Name of the new plugin (lowercase, hyphens only)
+          ui:autofocus: true
+          pattern: '^[a-z][a-z0-9-]*$'
+        pluginType:
+          title: Plugin Type
+          type: string
+          description: The type of Backstage plugin to create
+          enum:
+            - frontend
+            - backend
+            - common
+          enumNames:
+            - Frontend plugin
+            - Backend plugin
+            - Common library
+        owner:
+          title: Team Ownership
+          type: string
+          description: The team that will own and maintain this plugin
+          ui:field: OwnerPicker
+          ui:options:
+            catalogFilter:
+              kind: [Group]
+        repoName:
+          title: Repository Name
+          type: string
+          description: Name for the new GitHub repository (will be created under github.com/jojoh9924/)
+          pattern: '^[a-z][a-z0-9-]*$'
+
+  steps:
+    - id: fetch
+      name: Fetch Plugin Skeleton
+      action: fetch:template
+      input:
+        url: ./skeleton
+        values:
+          pluginName: ${{ parameters.pluginName }}
+          pluginType: ${{ parameters.pluginType }}
+          owner: ${{ parameters.owner }}
+          repoName: ${{ parameters.repoName }}
+
+    - id: publish
+      name: Publish to GitHub
+      action: publish:github
+      input:
+        allowedHosts: ['github.com']
+        repoUrl: github.com?owner=jojoh9924&repo=${{ parameters.repoName }}
+        description: Backstage ${{ parameters.pluginType }} plugin - ${{ parameters.pluginName }}
+        defaultBranch: main
+        repoVisibility: public
+
+    - id: register
+      name: Register in Catalog
+      action: catalog:register
+      input:
+        repoContentsUrl: ${{ steps.publish.output.repoContentsUrl }}
+        catalogInfoPath: /catalog-info.yaml
+        optional: true
+
+  output:
+    links:
+      - title: Open in Dev Spaces
+        icon: code
+        url: https://workspaces.openshift.com/f?url=${{ steps.publish.output.remoteUrl }}
+      - title: View Repository
+        icon: github
+        url: ${{ steps.publish.output.remoteUrl }}
+    text:
+      - title: Plugin Summary
+        content: |
+          **Plugin:** `${{ parameters.pluginName }}`
+          **Type:** ${{ parameters.pluginType }}
+          **Owner:** ${{ parameters.owner }}
+          **Repository:** [${{ steps.publish.output.remoteUrl }}](${{ steps.publish.output.remoteUrl }})
+
+          Your Dev Spaces workspace is ready with Node.js, TypeScript, and Yarn pre-installed.
+          Click **Open in Dev Spaces** above to start coding immediately.

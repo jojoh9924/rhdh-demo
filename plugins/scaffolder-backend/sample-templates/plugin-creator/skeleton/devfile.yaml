@@ -1,0 +1,47 @@
+schemaVersion: 2.2.0
+metadata:
+  name: ${{ values.pluginName }}
+  version: 1.0.0
+components:
+  - name: dev
+    container:
+      image: registry.redhat.io/devspaces/udi-rhel8:latest
+      memoryLimit: 4Gi
+      cpuLimit: 2000m
+      mountSources: true
+      endpoints:
+        - name: dev-server
+          targetPort: 3000
+          exposure: public
+          protocol: https
+      env:
+        - name: NODE_OPTIONS
+          value: '--max-old-space-size=3072'
+commands:
+  - id: install
+    exec:
+      label: Install dependencies
+      component: dev
+      commandLine: yarn install
+      workingDir: ${PROJECT_SOURCE}
+      group:
+        kind: build
+        isDefault: false
+  - id: start
+    exec:
+      label: Start dev server
+      component: dev
+      commandLine: yarn start
+      workingDir: ${PROJECT_SOURCE}
+      group:
+        kind: run
+        isDefault: true
+  - id: test
+    exec:
+      label: Run tests
+      component: dev
+      commandLine: yarn test
+      workingDir: ${PROJECT_SOURCE}
+      group:
+        kind: test
+        isDefault: true
