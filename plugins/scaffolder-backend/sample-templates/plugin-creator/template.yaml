@@ -20,7 +20,6 @@ spec:
         - pluginName
         - pluginType
         - owner
-        - repoName
       properties:
         pluginName:
           title: Plugin Name
@@ -41,18 +40,36 @@ spec:
             - Backend plugin
             - Common library
         owner:
-          title: Team Ownership
+          title: Owner
           type: string
-          description: The team that will own and maintain this plugin
+          description: Owner of the component
           ui:field: OwnerPicker
           ui:options:
             catalogFilter:
               kind: [Group]
-        repoName:
-          title: Repository Name
+    - title: Dev Spaces Environment
+      required:
+        - rhdhLocalRepoUrl
+      properties:
+        rhdhLocalRepoUrl:
+          title: Enterprise rhdh-local Repository
           type: string
-          description: Name for the new GitHub repository (will be created under github.com/jojoh9924/)
-          pattern: '^[a-z][a-z0-9-]*$'
+          description: >-
+            URL of your enterprise rhdh-local fork
+            (e.g. https://github.com/my-org/rhdh-local).
+            This repo will be cloned into the Dev Spaces workspace
+            so its scripts and configs are available for testing.
+    - title: Choose a location
+      required:
+        - repoUrl
+      properties:
+        repoUrl:
+          title: Repository Location
+          type: string
+          ui:field: RepoUrlPicker
+          ui:options:
+            allowedHosts:
+              - github.com
 
   steps:
     - id: fetch
@@ -64,14 +81,14 @@ spec:
           pluginName: ${{ parameters.pluginName }}
           pluginType: ${{ parameters.pluginType }}
           owner: ${{ parameters.owner }}
-          repoName: ${{ parameters.repoName }}
+          destination: ${{ parameters.repoUrl | parseRepoUrl }}
+          rhdhLocalRepoUrl: ${{ parameters.rhdhLocalRepoUrl }}
 
     - id: publish
       name: Publish to GitHub
       action: publish:github
       input:
-        allowedHosts: ['github.com']
-        repoUrl: github.com?owner=jojoh9924&repo=${{ parameters.repoName }}
+        repoUrl: ${{ parameters.repoUrl }}
         description: Backstage ${{ parameters.pluginType }} plugin - ${{ parameters.pluginName }}
         defaultBranch: main
         repoVisibility: public
@@ -87,8 +104,8 @@ spec:
   output:
     links:
       - title: Open in Dev Spaces
-        icon: code
-        url: https://workspaces.openshift.com/f?url=${{ steps.publish.output.remoteUrl }}
+        icon: web
+        url: https://workspaces.openshift.com/#${{ steps.publish.output.remoteUrl }}
       - title: View Repository
         icon: github
         url: ${{ steps.publish.output.remoteUrl }}

@@ -2,10 +2,18 @@ schemaVersion: 2.2.0
 metadata:
   name: ${{ values.pluginName }}
   version: 1.0.0
+projects:
+  - name: rhdh-local
+    git:
+      remotes:
+        origin: ${{ values.rhdhLocalRepoUrl }}
+      checkoutFrom:
+        remote: origin
+        revision: main
 components:
-  - name: dev
+  - name: tools
     container:
-      image: registry.redhat.io/devspaces/udi-rhel8:latest
+      image: quay.io/devfile/universal-developer-image:ubi9-latest
       memoryLimit: 4Gi
       cpuLimit: 2000m
       mountSources: true
@@ -15,13 +23,19 @@ components:
           exposure: public
           protocol: https
       env:
+        - name: PLUGIN_NAME
+          value: ${{ values.pluginName }}
+        - name: BACKSTAGE_APP_DIR
+          value: /projects
+        - name: RHDH_LOCAL_DIR
+          value: /projects/rhdh-local
         - name: NODE_OPTIONS
           value: '--max-old-space-size=3072'
 commands:
   - id: install
     exec:
       label: Install dependencies
-      component: dev
+      component: tools
       commandLine: yarn install
       workingDir: ${PROJECT_SOURCE}
       group:
@@ -30,7 +44,7 @@ commands:
   - id: start
     exec:
       label: Start dev server
-      component: dev
+      component: tools
       commandLine: yarn start
       workingDir: ${PROJECT_SOURCE}
       group:
@@ -39,9 +53,28 @@ commands:
   - id: test
     exec:
       label: Run tests
-      component: dev
+      component: tools
       commandLine: yarn test
       workingDir: ${PROJECT_SOURCE}
       group:
         kind: test
         isDefault: true
+  - id: start-rhdh
+    exec:
+      label: Test in RHDH Local
+      component: tools
+      commandLine: cd ${PROJECT_SOURCE} && npx @janus-idp/cli@latest package export-dynamic-plugin && cd /projects/rhdh-local && yarn install && yarn start
+      workingDir: /projects/rhdh-local
+      group:
+        kind: run
+        isDefault: false
+  - id: push-and-pr
+    exec:
+      label: Push Branch and Create Pull Request
+      component: tools
+      commandLine: |
+        git add -A && git commit -m "feat: add ${PLUGIN_NAME} dynamic plugin" && git push -u origin HEAD && gh pr create --fill
+      workingDir: ${PROJECT_SOURCE}
+      group:
+        kind: build
+        isDefault: false
