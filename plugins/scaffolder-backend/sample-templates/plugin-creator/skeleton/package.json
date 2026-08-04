@@ -8,6 +8,7 @@
   "scripts": {
     "build": "backstage-cli package build",
     "clean": "backstage-cli package clean",
+    "export-dynamic": "rhdh-cli plugin export --clean",
     "lint": "backstage-cli package lint",
     "start": "backstage-cli package start",
     "test": "backstage-cli package test"
@@ -21,6 +22,8 @@
   },
   "devDependencies": {
     "@backstage/cli": "^0.26.0",
+    "@backstage/dev-utils": "^1.0.0",
+    "@red-hat-developer-hub/cli": "^0.5.0",
     "@types/react": "^18.0.0",
     "typescript": "~5.3.0"
   }
