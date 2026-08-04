@@ -1,0 +1,184 @@
+schemaVersion: 2.3.0
+metadata:
+  name: rhdh-plugin-dev
+  version: 1.0.0
+  displayName: RHDH Plugin Development
+  description: >-
+    Dev Spaces workspace for developing and testing dynamic plugins against a
+    local RHDH instance. Enterprise example configuration.
+attributes:
+  controller.devfile.io/storage-type: per-workspace
+
+components:
+  # ── Developer Tools Container ────────────────────────────────────────────
+  - name: tools
+    container:
+      image: quay.io/devfile/universal-developer-image:ubi9-latest
+      mountSources: true
+      memoryLimit: 6Gi
+      memoryRequest: 512Mi
+      cpuLimit: "2"
+      cpuRequest: 500m
+      env:
+        - name: CLUSTER_APPS_DOMAIN
+          value: "apps.sandbox-m2.ll9k.p1.openshiftapps.com"
+        - name: PLUGIN_NAME
+          value: ""
+        - name: DYNAMIC_PLUGINS_ROOT
+          value: /dynamic-plugins-root
+        - name: NODE_OPTIONS
+          value: "--max-old-space-size=3072"
+        - name: PROXY_HOST
+          value: ""
+        - name: PROXY_PORT
+          value: ""
+      endpoints:
+        - name: plugin-dev
+          exposure: public
+          targetPort: 3000
+          protocol: https
+          attributes:
+            discoverable: true
+            urlRewriteSupported: false
+      volumeMounts:
+        - name: dynamic-plugins-root
+          path: /dynamic-plugins-root
+        - name: yarn-cache
+          path: /home/user/.cache/yarn
+
+  # ── RHDH Container ──────────────────────────────────────────────────────
+  - name: rhdh
+    container:
+      image: quay.io/rhdh-community/rhdh:1.10
+      command: ["tail"]
+      args: ["-f", "/dev/null"]
+      mountSources: true
+      memoryLimit: 6Gi
+      memoryRequest: 1Gi
+      cpuLimit: "2"
+      cpuRequest: 500m
+      env:
+        - name: DEVSPACE_SCRIPTS_DIR
+          value: /projects/rhdh-local
+        - name: BASE_URL
+          value: auto
+        - name: RHDH_PUBLIC_ENDPOINT_NAME
+          value: rhdh
+        - name: CLUSTER_APPS_DOMAIN
+          value: "apps.sandbox-m2.ll9k.p1.openshiftapps.com"
+        - name: NODE_ENV
+          value: development
+        - name: NODE_OPTIONS
+          value: "--inspect=0.0.0.0:9229 --no-node-snapshot"
+        - name: CATALOG_INDEX_IMAGE
+          value: quay.io/rhdh/plugin-catalog-index:1.10
+        - name: WAIT_FOR_PLUGINS_TIMEOUT
+          value: "180"
+        - name: CATALOG_ENTITIES_EXTRACT_DIR
+          value: /opt/app-root/src/extensions
+        - name: ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE
+          value: "true"
+        - name: ENABLE_CORE_ROOTHTTPROUTER_OVERRIDE
+          value: "true"
+      endpoints:
+        - name: rhdh
+          exposure: public
+          targetPort: 7007
+          protocol: https
+          attributes:
+            discoverable: true
+            urlRewriteSupported: false
+        - name: node-debug
+          exposure: internal
+          targetPort: 9229
+          protocol: tcp
+      volumeMounts:
+        - name: dynamic-plugins-root
+          path: /opt/app-root/src/dynamic-plugins-root
+        - name: dynamic-plugins-root
+          path: /dynamic-plugins-root
+        - name: extensions-catalog
+          path: /opt/app-root/src/extensions
+        - name: rhdh-generated
+          path: /opt/app-root/src/generated
+
+  # ── Volumes ─────────────────────────────────────────────────────────────
+  - name: dynamic-plugins-root
+    volume:
+      size: 2Gi
+  - name: extensions-catalog
+    volume:
+      size: 1Gi
+  - name: rhdh-generated
+    volume:
+      size: 512Mi
+  - name: yarn-cache
+    volume:
+      size: 2Gi
+  - name: projects
+    volume:
+      size: 20Gi
+
+commands:
+  # ── RHDH ────────────────────────────────────────────────────────────────
+  - id: start-rhdh
+    exec:
+      label: "Start RHDH"
+      component: rhdh
+      commandLine: |
+        chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
+        /projects/rhdh-local/scripts/start-rhdh.sh
+      workingDir: /projects/rhdh-local
+      group:
+        kind: run
+        isDefault: true
+  - id: restart-rhdh
+    exec:
+      label: "Restart RHDH"
+      component: rhdh
+      commandLine: |
+        echo "[rhdh] Stopping RHDH..."
+        pkill -f 'node.*packages/backend' 2>/dev/null || true
+        sleep 2
+        pkill -9 -f 'node.*packages/backend' 2>/dev/null || true
+        sleep 1
+        echo "[rhdh] Starting RHDH..."
+        chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
+        /projects/rhdh-local/scripts/start-rhdh.sh
+      workingDir: /projects/rhdh-local
+      group:
+        kind: run
+        isDefault: false
+
+  # ── Plugin Development ───────────────────────────────────────────────────
+  - id: deploy-plugin
+    exec:
+      label: "Deploy plugin to RHDH"
+      component: tools
+      commandLine: |
+        set -e
+        _PLUGIN="${PLUGIN_NAME:-}"
+        if [ -z "$_PLUGIN" ] && [ -t 0 ]; then
+          read -r -p "[plugin] Enter plugin directory name: " _PLUGIN
+        fi
+        [ -z "$_PLUGIN" ] && { echo "[plugin] ERROR: Set PLUGIN_NAME or provide input"; exit 1; }
+
+        _PLUGIN_DIR="/projects/$_PLUGIN"
+        [ -d "$_PLUGIN_DIR" ] || { echo "[plugin] ERROR: Directory $_PLUGIN_DIR not found"; exit 1; }
+
+        cd "$_PLUGIN_DIR"
+        echo "[plugin] Installing dependencies..."
+        yarn install
+        echo "[plugin] Exporting dynamic plugin..."
+        npx --yes @red-hat-developer-hub/cli@latest plugin export --clean \
+          --dynamic-plugins-root /dynamic-plugins-root
+        echo ""
+        echo "[plugin] Done. Run 'Restart RHDH' to load the updated plugin."
+      workingDir: /projects
+      group:
+        kind: build
+        isDefault: false
+
+events:
+  postStart:
+    - start-rhdh
