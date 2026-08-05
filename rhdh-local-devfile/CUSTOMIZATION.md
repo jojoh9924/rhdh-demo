@@ -111,6 +111,33 @@ Ensure your Dev Spaces instance has quotas configured to allow this. Without Son
 
 ## Troubleshooting
 
+**Can't see plugin files in the file explorer sidebar**
+
+The IDE opens with the file explorer rooted at the first cloned project (e.g., `/projects/rhdh-local`). Plugins you create at `/projects/<plugin-name>` are siblings, not children. Fix by:
+
+- **File → Open Folder → `/projects`** — reopens the workspace showing everything
+- Or **File → Add Folder to Workspace** → pick your plugin directory
+
+**`EADDRINUSE: address already in use :::7007` on restart**
+
+The `rhdh` container is minimal (no `ps`, `ss`, `pkill`). The Restart RHDH task uses `kill -9 -1` to force-kill all user processes. If you get port conflicts:
+
+- Make sure you're using the **Restart RHDH** devfile task (runs in the `rhdh` container automatically)
+- Don't start RHDH manually from a second terminal — there's likely already an instance running from the `postStart` event
+- Check your terminal tabs: the "Start RHDH" task terminal already has a running instance
+
+**CORS errors / `baseUrl: http://localhost:7007` in browser console**
+
+The `CLUSTER_APPS_DOMAIN` env var must match your actual cluster. If left empty, the start script attempts auto-detection from `DEVWORKSPACE_ROUTING_*` variables. If auto-detection fails:
+
+1. Find your domain: check the RHDH endpoint URL in the Dev Spaces dashboard
+2. Set it in both the `tools` and `rhdh` container env vars in the devfile
+3. Or export it before starting: `export CLUSTER_APPS_DOMAIN=apps.your-cluster.example.com`
+
+**Debugging — use the `tools` container**
+
+The `rhdh` container is a minimal UBI image. It intentionally lacks `ps`, `ss`, `top`, `curl`, and other diagnostic tools. Always open a terminal in the **tools** container for debugging. Both containers share the `/projects` and `/dynamic-plugins-root` volumes, so you can inspect files from either.
+
 **Workspace fails to start (image pull error)**
 
 - Verify image references are accessible from your cluster
@@ -118,14 +145,17 @@ Ensure your Dev Spaces instance has quotas configured to allow this. Without Son
 
 **RHDH doesn't start (port 7007 never opens)**
 
-- Check `/tmp/rhdh-start.log` in the rhdh container
+- Check the "Start RHDH" task terminal for errors
+- Look for `[devspaces-start]` log lines showing what went wrong
 - Verify `scripts/start-rhdh.sh` is executable and the script logic matches your RHDH version
 
 **Plugin doesn't appear after deploy**
 
-- Confirm the plugin was exported to `/dynamic-plugins-root`
-- Check RHDH logs for plugin loading errors: look for your plugin name in the startup output
-- Ensure `WAIT_FOR_PLUGINS_TIMEOUT` is long enough (default: 180s)
+- The **Deploy plugin to RHDH** task now auto-copies the built plugin to `/dynamic-plugins-root/` and auto-registers it in `dynamic-plugins.override.yaml`
+- After deploying, you must run **Restart RHDH** to load the new plugin
+- Check RHDH startup logs for your plugin name (loaded vs error)
+- For frontend plugins, navigate to `/<plugin-id>` in the browser
+- Check the browser console (F12) for JavaScript errors loading the plugin bundle
 
 **SonataFlow Maven downloads are slow**
 

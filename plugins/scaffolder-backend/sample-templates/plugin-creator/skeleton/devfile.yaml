@@ -131,13 +131,52 @@ commands:
         cd "${PROJECT_SOURCE:-/projects/${{ values.pluginName }}}"
         echo "[plugin] Exporting dynamic plugin..."
         yarn export-dynamic
-        echo "[plugin] Copying to dynamic-plugins-root..."
-        PLUGIN_PKG=$(node -p "require('./package.json').name.replace('@','').replace('/','-')")
-        rm -rf "/dynamic-plugins-root/${PLUGIN_PKG}" 2>/dev/null || true
-        cp -r dist-dynamic "/dynamic-plugins-root/${PLUGIN_PKG}"
-        echo "[plugin] Deployed. Restarting RHDH..."
-        echo "restart" > /dynamic-plugins-root/.restart-signal
-        echo "[plugin] Waiting for RHDH to reload (check the RHDH endpoint)..."
+
+        # ── Copy the built plugin to dynamic-plugins-root ──
+        _PKG_NAME=$(node -p "require('./package.json').name.replace('@','').replace('/','-')")
+        _DEST="/dynamic-plugins-root/${_PKG_NAME}"
+        echo "[plugin] Copying to $_DEST..."
+        rm -rf "$_DEST" 2>/dev/null || true
+        cp -r dist-dynamic "$_DEST"
+
+        # ── Auto-register in dynamic-plugins.override.yaml ──
+        _OVERRIDE="/projects/rhdh-local/configs/dynamic-plugins/dynamic-plugins.override.yaml"
+        _SCALPRUM_NAME=$(node -p "require('./package.json').name.replace('@','').replace('/','.').replace(/^plugin-/,'')" 2>/dev/null || echo "")
+        _ROLE=$(node -p "require('./package.json').backstage?.role || 'frontend-plugin'" 2>/dev/null)
+        _PLUGIN_ID=$(node -p "require('./package.json').backstage?.pluginId || '${{ values.pluginName }}'" 2>/dev/null)
+
+        if [ -n "$_SCALPRUM_NAME" ] && ! grep -q "$_SCALPRUM_NAME" "$_OVERRIDE" 2>/dev/null; then
+          mkdir -p "$(dirname "$_OVERRIDE")"
+          [ -f "$_OVERRIDE" ] || echo "plugins:" > "$_OVERRIDE"
+
+          if [ "$_ROLE" = "frontend-plugin" ]; then
+            cat >> "$_OVERRIDE" << YAML
+
+  - package: ./dynamic-plugins-root/${_PKG_NAME}
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          ${_SCALPRUM_NAME}:
+            dynamicRoutes:
+              - path: /${_PLUGIN_ID}
+                importName: default
+                menuItem:
+                  text: ${_PLUGIN_ID}
+                  icon: extension
+YAML
+          else
+            cat >> "$_OVERRIDE" << YAML
+
+  - package: ./dynamic-plugins-root/${_PKG_NAME}
+    disabled: false
+YAML
+          fi
+          echo "[plugin] Registered route /${_PLUGIN_ID} in $_OVERRIDE"
+        fi
+
+        echo "[plugin] Deployed. Run 'Restart RHDH' to load the plugin."
+        echo "[plugin] Then visit: <your-rhdh-url>/${_PLUGIN_ID}"
       workingDir: /projects
       group:
         kind: build
@@ -148,11 +187,21 @@ commands:
       component: rhdh
       commandLine: |
         echo "[rhdh] Stopping RHDH..."
-        pkill -f 'node.*packages/backend' 2>/dev/null || true
-        sleep 2
-        pkill -9 -f 'node.*packages/backend' 2>/dev/null || true
-        sleep 1
+        # The rhdh container is minimal (no ps/pkill/ss). kill -9 -1 terminates
+        # all user processes; the container stays alive via PID 1 (tail -f).
+        kill -9 -1 2>/dev/null || true
+        sleep 4
         echo "[rhdh] Starting RHDH..."
+
+        # Auto-detect CLUSTER_APPS_DOMAIN if not set
+        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
+          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
+          if [ -n "$_endpoint_url" ]; then
+            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
+            echo "[rhdh] Auto-detected CLUSTER_APPS_DOMAIN=$CLUSTER_APPS_DOMAIN"
+          fi
+        fi
+
         chmod +x /projects/rhdh-local/scripts/start-rhdh.sh 2>/dev/null
         bash /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects
@@ -201,6 +250,13 @@ commands:
       label: Initialize RHDH (background)
       component: rhdh
       commandLine: |
+        # Auto-detect CLUSTER_APPS_DOMAIN if not set
+        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
+          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
+          if [ -n "$_endpoint_url" ]; then
+            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
+          fi
+        fi
         nohup bash -c '
           chmod +x /projects/rhdh-local/scripts/start-rhdh.sh 2>/dev/null
           bash /projects/rhdh-local/scripts/start-rhdh.sh
@@ -215,6 +271,14 @@ commands:
       label: Start RHDH (foreground)
       component: rhdh
       commandLine: |
+        # Auto-detect CLUSTER_APPS_DOMAIN if not set
+        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
+          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
+          if [ -n "$_endpoint_url" ]; then
+            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
+            echo "[rhdh] Auto-detected CLUSTER_APPS_DOMAIN=$CLUSTER_APPS_DOMAIN"
+          fi
+        fi
         chmod +x /projects/rhdh-local/scripts/start-rhdh.sh 2>/dev/null
         bash /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects

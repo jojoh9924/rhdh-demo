@@ -1,7 +1,7 @@
 schemaVersion: 2.3.0
 metadata:
   name: rhdh-plugin-dev
-  version: 1.0.0
+  version: 1.1.0
   displayName: RHDH Plugin Development
   description: >-
     Dev Spaces workspace for developing and testing dynamic plugins against a
@@ -11,6 +11,8 @@ attributes:
 
 components:
   # ── Developer Tools Container ────────────────────────────────────────────
+  # NOTE: Use the 'tools' container terminal for debugging (has ps, ss, etc).
+  # The 'rhdh' container is minimal and lacks most diagnostic utilities.
   - name: tools
     container:
       image: quay.io/devfile/universal-developer-image:ubi9-latest
@@ -20,8 +22,10 @@ components:
       cpuLimit: "2"
       cpuRequest: 500m
       env:
+        # IMPORTANT: Set this to your cluster's apps domain.
+        # Find it with: oc get ingresses.config/cluster -o jsonpath='{.spec.domain}'
         - name: CLUSTER_APPS_DOMAIN
-          value: "apps.sandbox-m2.ll9k.p1.openshiftapps.com"
+          value: ""
         - name: PLUGIN_NAME
           value: ""
         - name: DYNAMIC_PLUGINS_ROOT
@@ -64,8 +68,11 @@ components:
           value: auto
         - name: RHDH_PUBLIC_ENDPOINT_NAME
           value: rhdh
+        # IMPORTANT: Must match the cluster where Dev Spaces is running.
+        # Leave empty to auto-detect from DEVWORKSPACE_ROUTING_* env vars,
+        # or set explicitly to your cluster's apps domain.
         - name: CLUSTER_APPS_DOMAIN
-          value: "apps.sandbox-m2.ll9k.p1.openshiftapps.com"
+          value: ""
         - name: NODE_ENV
           value: development
         - name: NODE_OPTIONS
@@ -136,6 +143,18 @@ commands:
             git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
           fi
         fi
+
+        # Auto-detect CLUSTER_APPS_DOMAIN from Dev Spaces routing if not set
+        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
+          # Dev Spaces exposes endpoint URLs via DEVWORKSPACE_ROUTING_* env vars
+          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
+          if [ -n "$_endpoint_url" ]; then
+            # Extract apps domain: remove the workspace-specific prefix
+            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
+            echo "[rhdh] Auto-detected CLUSTER_APPS_DOMAIN=$CLUSTER_APPS_DOMAIN"
+          fi
+        fi
+
         chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
         /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects
@@ -148,10 +167,10 @@ commands:
       component: rhdh
       commandLine: |
         echo "[rhdh] Stopping RHDH..."
-        pkill -f 'node.*packages/backend' 2>/dev/null || true
-        sleep 2
-        pkill -9 -f 'node.*packages/backend' 2>/dev/null || true
-        sleep 1
+        # Force-kill all node processes (the rhdh container is minimal —
+        # pkill/ps/ss are unavailable, so use kill -9 -1 to kill all user procs).
+        kill -9 -1 2>/dev/null || true
+        sleep 4
         echo "[rhdh] Starting RHDH..."
         if [ ! -d "/projects/rhdh-local" ]; then
           echo "[rhdh] Cloning rhdh-local..."
@@ -162,6 +181,16 @@ commands:
             git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
           fi
         fi
+
+        # Auto-detect CLUSTER_APPS_DOMAIN from Dev Spaces routing if not set
+        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
+          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
+          if [ -n "$_endpoint_url" ]; then
+            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
+            echo "[rhdh] Auto-detected CLUSTER_APPS_DOMAIN=$CLUSTER_APPS_DOMAIN"
+          fi
+        fi
+
         chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
         /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects
@@ -170,6 +199,22 @@ commands:
         isDefault: false
 
   # ── Plugin Development ───────────────────────────────────────────────────
+  - id: create-sample-plugin
+    exec:
+      label: "Create sample test plugin"
+      component: tools
+      commandLine: |
+        if [ ! -d "/projects/rhdh-local-devfile" ]; then
+          echo "[plugin] rhdh-local-devfile not found, downloading script..."
+          curl -sSfL https://raw.githubusercontent.com/redhat-developer/rhdh-local/main/devfile/scripts/create-sample-plugin.sh | bash
+        else
+          chmod +x /projects/rhdh-local-devfile/scripts/create-sample-plugin.sh
+          /projects/rhdh-local-devfile/scripts/create-sample-plugin.sh
+        fi
+      workingDir: /projects
+      group:
+        kind: build
+        isDefault: false
   - id: deploy-plugin
     exec:
       label: "Deploy plugin to RHDH"
@@ -188,11 +233,86 @@ commands:
         cd "$_PLUGIN_DIR"
         echo "[plugin] Installing dependencies..."
         yarn install
+
         echo "[plugin] Exporting dynamic plugin..."
-        npx --yes @red-hat-developer-hub/cli@latest plugin export --clean \
-          --dynamic-plugins-root /dynamic-plugins-root
+        npx --yes @red-hat-developer-hub/cli@latest plugin export --clean
+
+        # ── Copy the exported plugin to dynamic-plugins-root ──
+        _PKG_NAME=$(node -p "require('./package.json').name" 2>/dev/null | sed 's/@//;s/\//-/g;s/plugin-//')
+        _EXPORT_DIR="$_PLUGIN_DIR/dist-dynamic"
+        _DEST="/dynamic-plugins-root/${_PKG_NAME:-$_PLUGIN}"
+
+        if [ ! -d "$_EXPORT_DIR" ]; then
+          echo "[plugin] ERROR: Export did not produce dist-dynamic/. Check build output above."
+          exit 1
+        fi
+
+        echo "[plugin] Copying to $_DEST..."
+        rm -rf "$_DEST"
+        cp -r "$_EXPORT_DIR" "$_DEST"
+        echo "[plugin] Plugin deployed to: $_DEST"
+
+        # ── Auto-register the plugin in dynamic-plugins.override.yaml ──
+        _OVERRIDE="/projects/rhdh-local/configs/dynamic-plugins/dynamic-plugins.override.yaml"
+        _SCALPRUM_NAME=$(node -p "require('./package.json').name.replace('@','').replace('/','.').replace(/^plugin-/,'')" 2>/dev/null || echo "")
+
+        if [ -z "$_SCALPRUM_NAME" ]; then
+          echo "[plugin] WARNING: Could not determine scalprum name. Add config manually."
+        elif [ -f "$_OVERRIDE" ] && grep -q "$_SCALPRUM_NAME" "$_OVERRIDE" 2>/dev/null; then
+          echo "[plugin] Plugin already registered in override config."
+        else
+          _ROLE=$(node -p "require('./package.json').backstage?.role || 'frontend-plugin'" 2>/dev/null)
+          _PLUGIN_ID=$(node -p "require('./package.json').backstage?.pluginId || '$_PLUGIN'" 2>/dev/null)
+          _REL_PATH="./dynamic-plugins-root/${_PKG_NAME:-$_PLUGIN}"
+
+          echo "[plugin] Registering plugin in $_OVERRIDE..."
+          mkdir -p "$(dirname "$_OVERRIDE")"
+
+          if [ "$_ROLE" = "frontend-plugin" ]; then
+            # Frontend: register with a dynamic route
+            _IMPORT_NAME=$(node -p "
+              const exp = require('./src/index.ts'.replace('.ts','')||'');
+              Object.keys(exp).find(k => /Page$/.test(k)) || 'default'
+            " 2>/dev/null || echo "SampleTestPage")
+
+            if [ ! -f "$_OVERRIDE" ]; then
+              echo "plugins:" > "$_OVERRIDE"
+            fi
+
+            cat >> "$_OVERRIDE" << YAML
+
+  - package: ${_REL_PATH}
+    disabled: false
+    pluginConfig:
+      dynamicPlugins:
+        frontend:
+          ${_SCALPRUM_NAME}:
+            dynamicRoutes:
+              - path: /${_PLUGIN_ID}
+                importName: ${_IMPORT_NAME}
+                menuItem:
+                  text: ${_PLUGIN_ID}
+                  icon: extension
+YAML
+          else
+            # Backend plugin: just enable it
+            if [ ! -f "$_OVERRIDE" ]; then
+              echo "plugins:" > "$_OVERRIDE"
+            fi
+
+            cat >> "$_OVERRIDE" << YAML
+
+  - package: ${_REL_PATH}
+    disabled: false
+YAML
+          fi
+
+          echo "[plugin] Registered: route /${_PLUGIN_ID}"
+        fi
+
         echo ""
-        echo "[plugin] Done. Run 'Restart RHDH' to load the updated plugin."
+        echo "[plugin] Done! Run 'Restart RHDH' to load the plugin."
+        echo "[plugin] Then visit: <your-rhdh-url>/${_PLUGIN_ID}"
       workingDir: /projects
       group:
         kind: build
