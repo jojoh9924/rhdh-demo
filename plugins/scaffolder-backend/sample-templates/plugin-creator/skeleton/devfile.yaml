@@ -147,9 +147,8 @@ commands:
         pkill -9 -f 'node.*packages/backend' 2>/dev/null || true
         sleep 1
         echo "[rhdh] Starting RHDH..."
-        cd /projects/rhdh-local
-        chmod +x wait-for-plugins-and-start.sh 2>/dev/null
-        bash wait-for-plugins-and-start.sh
+        chmod +x /projects/rhdh-local/scripts/start-rhdh.sh 2>/dev/null
+        bash /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects
       group:
         kind: run
@@ -196,12 +195,8 @@ commands:
       label: Start RHDH (initial)
       component: rhdh
       commandLine: |
-        cd /projects/rhdh-local
-        echo "[rhdh] Preparing dynamic plugins..."
-        chmod +x prepare-and-install-dynamic-plugins.sh wait-for-plugins-and-start.sh 2>/dev/null
-        bash prepare-and-install-dynamic-plugins.sh
-        echo "[rhdh] Starting RHDH..."
-        bash wait-for-plugins-and-start.sh
+        chmod +x /projects/rhdh-local/scripts/start-rhdh.sh 2>/dev/null
+        bash /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects
       group:
         kind: run

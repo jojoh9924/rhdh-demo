@@ -88,7 +88,7 @@ spec:
           destination: ${{ parameters.repoUrl | parseRepoUrl }}
           # ── Platform-configured values ──
           # Change these when deploying this template to your enterprise RHDH.
-          rhdhLocalRepoUrl: https://github.com/redhat-developer/rhdh-local.git
+          rhdhLocalRepoUrl: https://github.com/jojoh9924/rhdh-local.git
           devSpacesUrl: https://workspaces.openshift.com
 
     - id: publish
