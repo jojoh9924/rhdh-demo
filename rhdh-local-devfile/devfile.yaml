@@ -25,7 +25,7 @@ components:
         # IMPORTANT: Set this to your cluster's apps domain.
         # Find it with: oc get ingresses.config/cluster -o jsonpath='{.spec.domain}'
         - name: CLUSTER_APPS_DOMAIN
-          value: ""
+          value: "apps.rm3.7wse.p1.openshiftapps.com"
         - name: PLUGIN_NAME
           value: ""
         - name: DYNAMIC_PLUGINS_ROOT
@@ -69,10 +69,9 @@ components:
         - name: RHDH_PUBLIC_ENDPOINT_NAME
           value: rhdh
         # IMPORTANT: Must match the cluster where Dev Spaces is running.
-        # Leave empty to auto-detect from DEVWORKSPACE_ROUTING_* env vars,
-        # or set explicitly to your cluster's apps domain.
+        # Find it with: oc get ingresses.config/cluster -o jsonpath='{.spec.domain}'
         - name: CLUSTER_APPS_DOMAIN
-          value: ""
+          value: "apps.rm3.7wse.p1.openshiftapps.com"
         - name: NODE_ENV
           value: development
         - name: NODE_OPTIONS
@@ -144,14 +143,13 @@ commands:
           fi
         fi
 
-        # Auto-detect CLUSTER_APPS_DOMAIN from Dev Spaces routing if not set
-        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
-          # Dev Spaces exposes endpoint URLs via DEVWORKSPACE_ROUTING_* env vars
-          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
-          if [ -n "$_endpoint_url" ]; then
-            # Extract apps domain: remove the workspace-specific prefix
-            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
-            echo "[rhdh] Auto-detected CLUSTER_APPS_DOMAIN=$CLUSTER_APPS_DOMAIN"
+        # Construct BASE_URL from Dev Spaces env vars + CLUSTER_APPS_DOMAIN
+        if [ -z "${BASE_URL:-}" ] || [ "${BASE_URL}" = "auto" ]; then
+          if [ -n "${CLUSTER_APPS_DOMAIN:-}" ] && [ -n "${DEVWORKSPACE_NAMESPACE:-}" ] && [ -n "${DEVWORKSPACE_NAME:-}" ]; then
+            _user="${DEVWORKSPACE_NAMESPACE%-dev}"
+            _endpoint="${RHDH_PUBLIC_ENDPOINT_NAME:-rhdh}"
+            export BASE_URL="https://${_user}-${DEVWORKSPACE_NAME}-${_endpoint}.${CLUSTER_APPS_DOMAIN}"
+            echo "[rhdh] BASE_URL=$BASE_URL"
           fi
         fi
 
@@ -182,12 +180,13 @@ commands:
           fi
         fi
 
-        # Auto-detect CLUSTER_APPS_DOMAIN from Dev Spaces routing if not set
-        if [ -z "${CLUSTER_APPS_DOMAIN:-}" ]; then
-          _endpoint_url=$(env | grep -i 'DEVWORKSPACE_ROUTING' | grep -i 'rhdh' | head -1 | sed 's/.*=https\?:\/\///' | sed 's|/.*||')
-          if [ -n "$_endpoint_url" ]; then
-            export CLUSTER_APPS_DOMAIN=$(echo "$_endpoint_url" | sed 's/^[^.]*\.//')
-            echo "[rhdh] Auto-detected CLUSTER_APPS_DOMAIN=$CLUSTER_APPS_DOMAIN"
+        # Construct BASE_URL from Dev Spaces env vars + CLUSTER_APPS_DOMAIN
+        if [ -z "${BASE_URL:-}" ] || [ "${BASE_URL}" = "auto" ]; then
+          if [ -n "${CLUSTER_APPS_DOMAIN:-}" ] && [ -n "${DEVWORKSPACE_NAMESPACE:-}" ] && [ -n "${DEVWORKSPACE_NAME:-}" ]; then
+            _user="${DEVWORKSPACE_NAMESPACE%-dev}"
+            _endpoint="${RHDH_PUBLIC_ENDPOINT_NAME:-rhdh}"
+            export BASE_URL="https://${_user}-${DEVWORKSPACE_NAME}-${_endpoint}.${CLUSTER_APPS_DOMAIN}"
+            echo "[rhdh] BASE_URL=$BASE_URL"
           fi
         fi
 
