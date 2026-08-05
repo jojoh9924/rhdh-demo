@@ -21,10 +21,10 @@ components:
     container:
       image: quay.io/devfile/universal-developer-image:ubi9-latest
       mountSources: true
-      memoryLimit: 4Gi
-      memoryRequest: 512Mi
-      cpuLimit: "2"
-      cpuRequest: 500m
+      memoryLimit: 3Gi
+      memoryRequest: 256Mi
+      cpuLimit: "1"
+      cpuRequest: 100m
       env:
         - name: PLUGIN_NAME
           value: ${{ values.pluginName }}
@@ -55,10 +55,10 @@ components:
       command: ["tail"]
       args: ["-f", "/dev/null"]
       mountSources: true
-      memoryLimit: 4Gi
-      memoryRequest: 1Gi
-      cpuLimit: "2"
-      cpuRequest: 500m
+      memoryLimit: 3Gi
+      memoryRequest: 256Mi
+      cpuLimit: "1"
+      cpuRequest: 100m
       env:
         - name: DEVSPACE_SCRIPTS_DIR
           value: /projects/rhdh-local
@@ -223,5 +223,4 @@ commands:
         isDefault: true
 events:
   postStart:
-    - install-deps
     - init-rhdh
