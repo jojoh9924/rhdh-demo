@@ -252,35 +252,22 @@ commands:
         cp -r "$_EXPORT_DIR" "$_DEST"
         echo "[plugin] Plugin deployed to: $_DEST"
 
-        # ── Auto-register the plugin in dynamic-plugins.override.yaml ──
-        _OVERRIDE="/projects/rhdh-local/configs/dynamic-plugins/dynamic-plugins.override.yaml"
+        # ── Print config snippet for the user to add ──
         _SCALPRUM_NAME=$(node -p "require('./package.json').name.replace('@','').replace('/','.').replace(/^plugin-/,'')" 2>/dev/null || echo "")
+        _ROLE=$(node -p "require('./package.json').backstage?.role || 'frontend-plugin'" 2>/dev/null)
+        _PLUGIN_ID=$(node -p "require('./package.json').backstage?.pluginId || '$_PLUGIN'" 2>/dev/null)
+        _REL_PATH="./dynamic-plugins-root/${_PKG_NAME:-$_PLUGIN}"
 
-        if [ -z "$_SCALPRUM_NAME" ]; then
-          echo "[plugin] WARNING: Could not determine scalprum name. Add config manually."
-        elif [ -f "$_OVERRIDE" ] && grep -q "$_SCALPRUM_NAME" "$_OVERRIDE" 2>/dev/null; then
-          echo "[plugin] Plugin already registered in override config."
-        else
-          _ROLE=$(node -p "require('./package.json').backstage?.role || 'frontend-plugin'" 2>/dev/null)
-          _PLUGIN_ID=$(node -p "require('./package.json').backstage?.pluginId || '$_PLUGIN'" 2>/dev/null)
-          _REL_PATH="./dynamic-plugins-root/${_PKG_NAME:-$_PLUGIN}"
-
-          echo "[plugin] Registering plugin in $_OVERRIDE..."
-          mkdir -p "$(dirname "$_OVERRIDE")"
-
-          if [ "$_ROLE" = "frontend-plugin" ]; then
-            # Frontend: register with a dynamic route
-            _IMPORT_NAME=$(node -p "
-              const exp = require('./src/index.ts'.replace('.ts','')||'');
-              Object.keys(exp).find(k => /Page$/.test(k)) || 'default'
-            " 2>/dev/null || echo "SampleTestPage")
-
-            if [ ! -f "$_OVERRIDE" ]; then
-              echo "plugins:" > "$_OVERRIDE"
-            fi
-
-            cat >> "$_OVERRIDE" << YAML
-
+        echo ""
+        echo "════════════════════════════════════════════════════════════"
+        echo "[plugin] Plugin files deployed!"
+        echo ""
+        echo "[plugin] Add this entry to your dynamic-plugins config"
+        echo "[plugin] (e.g. /projects/rhdh-local/configs/dynamic-plugins/dynamic-plugins.yaml)"
+        echo "[plugin] under the 'plugins:' list:"
+        echo ""
+        if [ "$_ROLE" = "frontend-plugin" ]; then
+          cat << SNIPPET
   - package: ${_REL_PATH}
     disabled: false
     pluginConfig:
@@ -289,29 +276,20 @@ commands:
           ${_SCALPRUM_NAME}:
             dynamicRoutes:
               - path: /${_PLUGIN_ID}
-                importName: ${_IMPORT_NAME}
+                importName: SampleTestPage
                 menuItem:
                   text: ${_PLUGIN_ID}
                   icon: extension
-YAML
-          else
-            # Backend plugin: just enable it
-            if [ ! -f "$_OVERRIDE" ]; then
-              echo "plugins:" > "$_OVERRIDE"
-            fi
-
-            cat >> "$_OVERRIDE" << YAML
-
+SNIPPET
+        else
+          cat << SNIPPET
   - package: ${_REL_PATH}
     disabled: false
-YAML
-          fi
-
-          echo "[plugin] Registered: route /${_PLUGIN_ID}"
+SNIPPET
         fi
-
         echo ""
-        echo "[plugin] Done! Run 'Restart RHDH' to load the plugin."
+        echo "════════════════════════════════════════════════════════════"
+        echo "[plugin] After adding the config, run 'Restart RHDH' to load the plugin."
         echo "[plugin] Then visit: <your-rhdh-url>/${_PLUGIN_ID}"
       workingDir: /projects
       group:

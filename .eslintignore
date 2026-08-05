@@ -11,4 +11,5 @@
 **/workspaces/**
 **/templates/**
 **/sample-templates/**
+**/sample-test-plugin/**
 playwright.config.ts

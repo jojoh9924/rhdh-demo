@@ -139,19 +139,21 @@ commands:
         rm -rf "$_DEST" 2>/dev/null || true
         cp -r dist-dynamic "$_DEST"
 
-        # ── Auto-register in dynamic-plugins.override.yaml ──
-        _OVERRIDE="/projects/rhdh-local/configs/dynamic-plugins/dynamic-plugins.override.yaml"
+        # ── Print config snippet for the user to add ──
         _SCALPRUM_NAME=$(node -p "require('./package.json').name.replace('@','').replace('/','.').replace(/^plugin-/,'')" 2>/dev/null || echo "")
         _ROLE=$(node -p "require('./package.json').backstage?.role || 'frontend-plugin'" 2>/dev/null)
         _PLUGIN_ID=$(node -p "require('./package.json').backstage?.pluginId || '${{ values.pluginName }}'" 2>/dev/null)
 
-        if [ -n "$_SCALPRUM_NAME" ] && ! grep -q "$_SCALPRUM_NAME" "$_OVERRIDE" 2>/dev/null; then
-          mkdir -p "$(dirname "$_OVERRIDE")"
-          [ -f "$_OVERRIDE" ] || echo "plugins:" > "$_OVERRIDE"
-
-          if [ "$_ROLE" = "frontend-plugin" ]; then
-            cat >> "$_OVERRIDE" << YAML
-
+        echo ""
+        echo "════════════════════════════════════════════════════════════"
+        echo "[plugin] Plugin files deployed!"
+        echo ""
+        echo "[plugin] Add this entry to your dynamic-plugins config"
+        echo "[plugin] (e.g. /projects/rhdh-local/configs/dynamic-plugins/dynamic-plugins.yaml)"
+        echo "[plugin] under the 'plugins:' list:"
+        echo ""
+        if [ "$_ROLE" = "frontend-plugin" ]; then
+          cat << SNIPPET
   - package: ./dynamic-plugins-root/${_PKG_NAME}
     disabled: false
     pluginConfig:
@@ -160,22 +162,20 @@ commands:
           ${_SCALPRUM_NAME}:
             dynamicRoutes:
               - path: /${_PLUGIN_ID}
-                importName: default
+                importName: SampleTestPage
                 menuItem:
                   text: ${_PLUGIN_ID}
                   icon: extension
-YAML
-          else
-            cat >> "$_OVERRIDE" << YAML
-
+SNIPPET
+        else
+          cat << SNIPPET
   - package: ./dynamic-plugins-root/${_PKG_NAME}
     disabled: false
-YAML
-          fi
-          echo "[plugin] Registered route /${_PLUGIN_ID} in $_OVERRIDE"
+SNIPPET
         fi
-
-        echo "[plugin] Deployed. Run 'Restart RHDH' to load the plugin."
+        echo ""
+        echo "════════════════════════════════════════════════════════════"
+        echo "[plugin] After adding the config, run 'Restart RHDH' to load the plugin."
         echo "[plugin] Then visit: <your-rhdh-url>/${_PLUGIN_ID}"
       workingDir: /projects
       group:
