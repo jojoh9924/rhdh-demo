@@ -128,11 +128,17 @@ commands:
       commandLine: |
         if [ ! -d "/projects/rhdh-local" ]; then
           echo "[rhdh] Cloning rhdh-local..."
-          git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+          if command -v git >/dev/null 2>&1; then
+            git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+          else
+            echo "[rhdh] git not found, installing..."
+            microdnf install -y git 2>/dev/null || dnf install -y git 2>/dev/null || yum install -y git
+            git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+          fi
         fi
         chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
         /projects/rhdh-local/scripts/start-rhdh.sh
-      workingDir: /projects/rhdh-local
+      workingDir: /projects
       group:
         kind: run
         isDefault: true
@@ -149,11 +155,16 @@ commands:
         echo "[rhdh] Starting RHDH..."
         if [ ! -d "/projects/rhdh-local" ]; then
           echo "[rhdh] Cloning rhdh-local..."
-          git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+          if command -v git >/dev/null 2>&1; then
+            git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+          else
+            microdnf install -y git 2>/dev/null || dnf install -y git 2>/dev/null || yum install -y git
+            git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+          fi
         fi
         chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
         /projects/rhdh-local/scripts/start-rhdh.sh
-      workingDir: /projects/rhdh-local
+      workingDir: /projects
       group:
         kind: run
         isDefault: false
