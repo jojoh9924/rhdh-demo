@@ -27,6 +27,12 @@ cat > "$PLUGIN_DIR/package.json" << 'EOF'
     "main": "dist/index.esm.js",
     "types": "dist/index.d.ts"
   },
+  "scalprum": {
+    "name": "internal.plugin-sample-test",
+    "exposedModules": {
+      "PluginRoot": "./src/index.ts"
+    }
+  },
   "private": true,
   "license": "Apache-2.0",
   "sideEffects": false,
