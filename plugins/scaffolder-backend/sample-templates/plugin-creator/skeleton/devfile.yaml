@@ -110,8 +110,15 @@ commands:
     exec:
       label: "1. Install dependencies"
       component: tools
-      commandLine: cd /projects/${{ values.pluginName }} && yarn install
-      workingDir: /projects/${{ values.pluginName }}
+      commandLine: |
+        PLUGIN_DIR="${PROJECT_SOURCE:-/projects/${{ values.pluginName }}}"
+        if [ ! -d "$PLUGIN_DIR" ]; then
+          for d in /projects/*/package.json; do
+            [ -f "$d" ] && PLUGIN_DIR="$(dirname "$d")" && break
+          done
+        fi
+        cd "$PLUGIN_DIR" && yarn install
+      workingDir: /projects
       group:
         kind: build
         isDefault: true
@@ -121,7 +128,7 @@ commands:
       component: tools
       commandLine: |
         set -e
-        cd /projects/${{ values.pluginName }}
+        cd "${PROJECT_SOURCE:-/projects/${{ values.pluginName }}}"
         echo "[plugin] Exporting dynamic plugin..."
         yarn export-dynamic
         echo "[plugin] Copying to dynamic-plugins-root..."
@@ -129,10 +136,9 @@ commands:
         rm -rf "/dynamic-plugins-root/${PLUGIN_PKG}" 2>/dev/null || true
         cp -r dist-dynamic "/dynamic-plugins-root/${PLUGIN_PKG}"
         echo "[plugin] Deployed. Restarting RHDH..."
-        # Signal the rhdh container to restart via shared file
         echo "restart" > /dynamic-plugins-root/.restart-signal
         echo "[plugin] Waiting for RHDH to reload (check the RHDH endpoint)..."
-      workingDir: /projects/${{ values.pluginName }}
+      workingDir: /projects
       group:
         kind: build
         isDefault: false
@@ -157,8 +163,8 @@ commands:
     exec:
       label: "4. Run tests"
       component: tools
-      commandLine: cd /projects/${{ values.pluginName }} && yarn test
-      workingDir: /projects/${{ values.pluginName }}
+      commandLine: cd "${PROJECT_SOURCE:-/projects/${{ values.pluginName }}}" && yarn test
+      workingDir: /projects
       group:
         kind: test
         isDefault: true
@@ -168,14 +174,14 @@ commands:
       component: tools
       commandLine: |
         set -e
-        cd /projects/${{ values.pluginName }}
+        cd "${PROJECT_SOURCE:-/projects/${{ values.pluginName }}}"
         BRANCH="feat/${PLUGIN_NAME}-$(date +%Y%m%d%H%M)"
         git checkout -b "$BRANCH" 2>/dev/null || git checkout "$BRANCH"
         git add -A
         git commit -m "feat(${PLUGIN_NAME}): initial plugin implementation"
         git push -u origin "$BRANCH"
         gh pr create --fill
-      workingDir: /projects/${{ values.pluginName }}
+      workingDir: /projects
       group:
         kind: build
         isDefault: false
@@ -184,8 +190,8 @@ commands:
     exec:
       label: "(Optional) Start standalone dev server"
       component: tools
-      commandLine: cd /projects/${{ values.pluginName }} && yarn start
-      workingDir: /projects/${{ values.pluginName }}
+      commandLine: cd "${PROJECT_SOURCE:-/projects/${{ values.pluginName }}}" && yarn start
+      workingDir: /projects
       group:
         kind: run
         isDefault: false
