@@ -126,6 +126,10 @@ commands:
       label: "Start RHDH"
       component: rhdh
       commandLine: |
+        if [ ! -d "/projects/rhdh-local" ]; then
+          echo "[rhdh] Cloning rhdh-local..."
+          git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+        fi
         chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
         /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects/rhdh-local
@@ -143,6 +147,10 @@ commands:
         pkill -9 -f 'node.*packages/backend' 2>/dev/null || true
         sleep 1
         echo "[rhdh] Starting RHDH..."
+        if [ ! -d "/projects/rhdh-local" ]; then
+          echo "[rhdh] Cloning rhdh-local..."
+          git clone https://github.com/redhat-developer/rhdh-local.git /projects/rhdh-local
+        fi
         chmod +x "/projects/rhdh-local/scripts/start-rhdh.sh" 2>/dev/null
         /projects/rhdh-local/scripts/start-rhdh.sh
       workingDir: /projects/rhdh-local
