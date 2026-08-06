@@ -242,6 +242,61 @@ commands:
       group:
         kind: run
         isDefault: false
+  # ── Optional: full Backstage app workflow (RHDH docs approach) ─────────
+  - id: create-backstage-app
+    exec:
+      label: "(Docs) Create Backstage App"
+      component: tools
+      commandLine: |
+        set -e
+        _APP_DIR="/projects/backstage-app"
+        if [ -d "$_APP_DIR" ]; then
+          echo "[create-app] $_APP_DIR already exists. Skipping."
+          echo "[create-app] To recreate, remove it first: rm -rf $_APP_DIR"
+          exit 0
+        fi
+        echo "══════════════════════════════════════════════════════════════"
+        echo "[create-app] Scaffolding a new Backstage application..."
+        echo "[create-app] Follows: https://docs.redhat.com/en/documentation/"
+        echo "[create-app]   red_hat_developer_hub/1.9/html/develop_and_deploy_"
+        echo "[create-app]   dynamic_plugins_in_red_hat_developer_hub/"
+        echo "[create-app]   develop-a-new-plugin"
+        echo "══════════════════════════════════════════════════════════════"
+        echo ""
+        npx @backstage/create-app@0.7.6 --path "$_APP_DIR"
+        echo ""
+        echo "══════════════════════════════════════════════════════════════"
+        echo "[create-app] Done! Backstage app created at $_APP_DIR"
+        echo ""
+        echo "[create-app] Next steps:"
+        echo "  cd $_APP_DIR"
+        echo "  yarn new          # create a plugin (frontend, backend, etc.)"
+        echo "  yarn start        # run the full Backstage app"
+        echo "══════════════════════════════════════════════════════════════"
+      workingDir: /projects
+      group:
+        kind: build
+        isDefault: false
+  - id: yarn-new-plugin
+    exec:
+      label: "(Docs) Create plugin with yarn new"
+      component: tools
+      commandLine: |
+        _APP_DIR="/projects/backstage-app"
+        if [ ! -d "$_APP_DIR" ]; then
+          echo "[yarn-new] ERROR: No Backstage app found at $_APP_DIR"
+          echo "[yarn-new] Run 'Create Backstage App' first."
+          exit 1
+        fi
+        cd "$_APP_DIR"
+        echo "[yarn-new] Running yarn new in $_APP_DIR..."
+        echo "[yarn-new] Select a plugin type and enter a plugin ID when prompted."
+        echo ""
+        yarn new
+      workingDir: /projects
+      group:
+        kind: build
+        isDefault: false
   # ── Infrastructure (runs automatically) ─────────────────────────────────
   - id: init-rhdh
     exec:
