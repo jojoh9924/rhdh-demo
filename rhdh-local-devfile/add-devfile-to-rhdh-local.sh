@@ -323,11 +323,14 @@ commands:
         _PLUGIN_DIR="/projects/$_PLUGIN"
         [ -d "$_PLUGIN_DIR" ] || { echo "[plugin] ERROR: Directory $_PLUGIN_DIR not found"; exit 1; }
         cd "$_PLUGIN_DIR"
+        [ -f package.json ] || { echo "[plugin] ERROR: No package.json in $_PLUGIN_DIR"; exit 1; }
+        # Anchor yarn to this directory so it doesn't traverse up to a parent project root
+        [ -f yarn.lock ] || touch yarn.lock
         echo "[plugin] Installing dependencies..."
         yarn install
         echo "[plugin] Exporting dynamic plugin..."
-        npx --yes @red-hat-developer-hub/cli@latest plugin export --clean \
-          --dynamic-plugins-root /dynamic-plugins-root
+        rm -rf dist-dynamic
+        npx --yes @red-hat-developer-hub/cli@latest plugin export
         echo ""
         echo "[plugin] Done. Run 'Restart RHDH' to load the updated plugin."
       workingDir: /projects
