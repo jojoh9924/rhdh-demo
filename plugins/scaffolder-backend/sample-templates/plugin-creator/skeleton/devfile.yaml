@@ -153,25 +153,23 @@ commands:
         echo "[plugin] under the 'plugins:' list:"
         echo ""
         if [ "$_ROLE" = "frontend-plugin" ]; then
-          cat << SNIPPET
-  - package: ./dynamic-plugins-root/${_PKG_NAME}
-    disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          ${_SCALPRUM_NAME}:
-            dynamicRoutes:
-              - path: /${_PLUGIN_ID}
-                importName: SampleTestPage
-                menuItem:
-                  text: ${_PLUGIN_ID}
-                  icon: extension
-SNIPPET
+          printf '%s\n' \
+            "  - package: ./dynamic-plugins-root/${_PKG_NAME}" \
+            "    disabled: false" \
+            "    pluginConfig:" \
+            "      dynamicPlugins:" \
+            "        frontend:" \
+            "          ${_SCALPRUM_NAME}:" \
+            "            dynamicRoutes:" \
+            "              - path: /${_PLUGIN_ID}" \
+            "                importName: SampleTestPage" \
+            "                menuItem:" \
+            "                  text: ${_PLUGIN_ID}" \
+            "                  icon: extension"
         else
-          cat << SNIPPET
-  - package: ./dynamic-plugins-root/${_PKG_NAME}
-    disabled: false
-SNIPPET
+          printf '%s\n' \
+            "  - package: ./dynamic-plugins-root/${_PKG_NAME}" \
+            "    disabled: false"
         fi
         echo ""
         echo "════════════════════════════════════════════════════════════"

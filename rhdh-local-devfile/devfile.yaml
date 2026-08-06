@@ -272,25 +272,23 @@ commands:
         echo "[plugin] under the 'plugins:' list:"
         echo ""
         if [ "$_ROLE" = "frontend-plugin" ]; then
-          cat << SNIPPET
-  - package: ${_REL_PATH}
-    disabled: false
-    pluginConfig:
-      dynamicPlugins:
-        frontend:
-          ${_SCALPRUM_NAME}:
-            dynamicRoutes:
-              - path: /${_PLUGIN_ID}
-                importName: SampleTestPage
-                menuItem:
-                  text: ${_PLUGIN_ID}
-                  icon: extension
-SNIPPET
+          printf '%s\n' \
+            "  - package: ${_REL_PATH}" \
+            "    disabled: false" \
+            "    pluginConfig:" \
+            "      dynamicPlugins:" \
+            "        frontend:" \
+            "          ${_SCALPRUM_NAME}:" \
+            "            dynamicRoutes:" \
+            "              - path: /${_PLUGIN_ID}" \
+            "                importName: SampleTestPage" \
+            "                menuItem:" \
+            "                  text: ${_PLUGIN_ID}" \
+            "                  icon: extension"
         else
-          cat << SNIPPET
-  - package: ${_REL_PATH}
-    disabled: false
-SNIPPET
+          printf '%s\n' \
+            "  - package: ${_REL_PATH}" \
+            "    disabled: false"
         fi
         echo ""
         echo "════════════════════════════════════════════════════════════"
